@@ -34,41 +34,50 @@ export default function Basket() {
   };
 
   const calculateDiscount = () => {
-    const subtotal = calculateSubtotal();
+    const totalQuantity = Object.values(quantities).reduce((a, b) => a + b, 0);
     let discountName = '';
     let discountAmount = 0;
 
-    if (subtotal > 200) {
+    if (totalQuantity > 30) {
+      const discountedProductsQuantity = Math.max(...Object.values(quantities));
+      const discountedPrice = products
+        .filter((product) => quantities[product.name] > 15)
+        .map((product) => product.price)
+        .reduce((a, b) => a + b, 0);
+      discountName = 'tiered_50_discount';
+      discountAmount = (discountedProductsQuantity - 15) * discountedPrice * 0.5;
+    } else if (totalQuantity > 20) {
+      discountName = 'bulk_10_discount';
+      discountAmount = calculateSubtotal() * 0.1;
+    } else if (totalQuantity > 10) {
+      for (const product of products) {
+        if (quantities[product.name] > 10) {
+          discountName = 'bulk_5_discount';
+          discountAmount = product.price * quantities[product.name] * 0.05;
+          break;
+        }
+      }
+    } else if (calculateSubtotal() > 200) {
       discountName = 'flat_10_discount';
       discountAmount = 10;
     }
 
-    for (const product of products) {
-      const quantity = quantities[product.name] || 0;
-      if (quantity > 10) {
-        discountName = 'bulk_5_discount';
-        discountAmount = (product.price * quantity * 5) / 100;
-        break;
-      }
-    }
-
-    const totalQuantity = Object.values(quantities).reduce((a, b) => a + b, 0);
-    if (totalQuantity > 20) {
-      discountName = 'bulk_10_discount';
-      discountAmount = (calculateSubtotal() * 10) / 100;
-    }
-
-    const exceeds30 = totalQuantity > 30;
-    const exceeds15 = Object.values(quantities).some((quantity) => quantity > 15);
-    if (exceeds30 && exceeds15) {
-      discountName = 'tiered_50_discount';
-      const quantityAbove15 = Object.values(quantities).map((quantity) =>
-        quantity > 15 ? quantity - 15 : 0
-      );
-      discountAmount = quantityAbove15.reduce((a, b) => a + b, 0) * 0.5;
-    }
-
     return { discountName, discountAmount };
+  };
+
+  const calculateGiftWrapFee = () => {
+    let giftWrapFee = 0;
+
+  for (const product of products) {
+    const quantity = quantities[product.name] || 0;
+    const giftWrapSelected = giftWraps[product.name] || false;
+
+    if (giftWrapSelected) {
+      giftWrapFee += quantity * 1; // $1 per unit
+    }
+  }
+
+  return giftWrapFee;
   };
 
   const calculateShippingFee = () => {
@@ -78,25 +87,21 @@ export default function Basket() {
     return shippingFee;
   };
 
-  const calculateGiftWrapFee = () => {
-    const totalQuantity = Object.values(quantities).reduce((a, b) => a + b, 0);
-    const giftWrapFee = totalQuantity * 1;
-    return giftWrapFee;
-  };
-
   const handleCheckout = () => {
     const subtotal = calculateSubtotal();
-    const { discountName, discountAmount } = calculateDiscount();
-    const shippingFee = calculateShippingFee();
-    const giftWrapFee = calculateGiftWrapFee();
-    const total = subtotal - discountAmount + shippingFee + giftWrapFee;
+  const { discountName, discountAmount } = calculateDiscount();
+  const giftWrapFee = calculateGiftWrapFee();
+  const shippingFee = calculateShippingFee();
+  const total = subtotal - discountAmount + giftWrapFee + shippingFee;
 
-    console.log('Product Quantities:', quantities);
-    console.log('Subtotal:', subtotal);
-    console.log('Discount:', discountName, discountAmount);
-    console.log('Shipping Fee:', shippingFee);
-    console.log('Gift Wrap Fee:', giftWrapFee);
-    console.log('Total:', total);
+  console.log('Product Quantities:', quantities);
+  console.log('Subtotal:', subtotal);
+  console.log('Discount:', discountName, discountAmount);
+  console.log('Gift Wrap Fee:', giftWrapFee);
+  console.log('Shipping Fee:', shippingFee);
+  console.log('Total:', total);
+
+  
   };
 
   return (
@@ -111,7 +116,9 @@ export default function Basket() {
                 type="number"
                 min="0"
                 value={quantities[product.name] || ''}
-                onChange={(e) => handleQuantityChange(product.name, +e.target.value)}
+                onChange={(e) =>
+                  handleQuantityChange(product.name, parseInt(e.target.value))
+                }
               />
             </div>
             <div className="col-2">
@@ -119,32 +126,40 @@ export default function Basket() {
                 <input
                   type="checkbox"
                   checked={giftWraps[product.name] || false}
-                  onChange={(e) => handleGiftWrapChange(product.name, e.target.checked)}
+                  onChange={(e) =>
+                    handleGiftWrapChange(product.name, e.target.checked)
+                  }
                 />
                 Gift Wrap
               </label>
             </div>
           </div>
         ))}
-
         <hr />
         <div className="row">
           <div className="col-2">Subtotal</div>
-          <div className="col-1 text-right">${calculateSubtotal().toFixed(2)}</div>
+          <div className="col-1 text-right">
+            ${calculateSubtotal().toFixed(2)}
+          </div>
         </div>
         <div className="row">
           <div className="col-2">Discount</div>
           <div className="col-1 text-right">
-            {calculateDiscount().discountName} - ${calculateDiscount().discountAmount.toFixed(2)}
+            {calculateDiscount().discountName} - $
+            {calculateDiscount().discountAmount.toFixed(2)}
+          </div>
+        </div>
+        <div className="row">
+          <div className="col-2">Gift Wrap Fee</div>
+          <div className="col-1 text-right">
+            ${calculateGiftWrapFee().toFixed(2)}
           </div>
         </div>
         <div className="row">
           <div className="col-2">Shipping Fee</div>
-          <div className="col-1 text-right">${calculateShippingFee().toFixed(2)}</div>
-        </div>
-        <div className="row">
-          <div className="col-2">Gift Wrap Fee</div>
-          <div className="col-1 text-right">${calculateGiftWrapFee().toFixed(2)}</div>
+          <div className="col-1 text-right">
+            ${calculateShippingFee().toFixed(2)}
+          </div>
         </div>
         <hr />
         <div className="row">
@@ -152,7 +167,14 @@ export default function Basket() {
             <strong>Total</strong>
           </div>
           <div className="col-1 text-right">
-            <strong>${(calculateSubtotal() - calculateDiscount().discountAmount + calculateShippingFee() + calculateGiftWrapFee()).toFixed(2)}</strong>
+            <strong>
+              ${(
+                calculateSubtotal() -
+                calculateDiscount().discountAmount +
+                calculateGiftWrapFee() +
+                calculateShippingFee()
+              ).toFixed(2)}
+            </strong>
           </div>
         </div>
         <hr />
